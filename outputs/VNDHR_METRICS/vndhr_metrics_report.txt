@@ -1,0 +1,81 @@
+
+═══════════════════════════════════════════════════════════════════
+VNDHR PREPROCESSING METRICS - COMPREHENSIVE REPORT
+═══════════════════════════════════════════════════════════════════
+
+TEST DATASET
+────────────────────────────────────────────────────────────────────
+Total test images:     1000
+Images with GT:        999
+Resolution:            256×256 pixels
+
+QUANTITATIVE RESULTS - VNDHR PREPROCESSING
+────────────────────────────────────────────────────────────────────
+Average PSNR:          19.79 dB
+Average SSIM:          0.8470
+
+PSNR Statistics:
+  • Minimum:           9.98 dB
+  • Maximum:           29.50 dB
+  • Median:            20.14 dB
+  • Std Deviation:     3.22 dB
+
+SSIM Statistics:
+  • Minimum:           0.5173
+  • Maximum:           0.9481
+  • Median:            0.8707
+  • Std Deviation:     0.0752
+
+COMPARISON WITH UNET RESULTS
+────────────────────────────────────────────────────────────────────
+                        VNDHR Only    UNet (Final)    Improvement
+────────────────────────────────────────────────────────────────────
+Average PSNR:           19.79 dB      26.01 dB       +6.22 dB
+Average SSIM:          0.8470        0.9011        +0.0541
+
+ANALYSIS
+────────────────────────────────────────────────────────────────────
+VNDHR Preprocessing Performance:
+  • VNDHR alone achieves 19.79 dB PSNR
+  • This provides a strong baseline for further refinement
+
+UNet Refinement Impact:
+  • UNet improves PSNR by 6.22 dB over VNDHR preprocessing
+  • UNet improves SSIM by 0.0541 over VNDHR preprocessing
+  • Demonstrates the effectiveness of deep learning refinement
+
+Distribution Analysis:
+  • 526/999 images (52.7%) achieve PSNR ≥ 20 dB
+  • 31/999 images (3.1%) achieve PSNR ≥ 25 dB
+  • 790/999 images (79.1%) achieve SSIM ≥ 0.8
+
+METHODOLOGY
+────────────────────────────────────────────────────────────────────
+Preprocessing Method:   Enhanced VNDHR (Variational Nighttime Dehazing)
+Parameters:
+  • lambda1: 0.003
+  • lambda2: 0.0002
+  • lambda3: 0.001
+  • p: 0.7
+  • max_iter: 7
+
+Processing Pipeline:
+  1. HSV color space transformation
+  2. Variational optimization for illumination (I) and reflectance (R)
+  3. Edge-preserving regularization
+  4. Iterative refinement (7 iterations)
+
+CONCLUSION
+────────────────────────────────────────────────────────────────────
+VNDHR preprocessing provides a solid foundation with 19.79 dB PSNR.
+The subsequent UNet refinement adds 6.22 dB, demonstrating the
+value of the two-stage approach: classical preprocessing + deep learning.
+
+The combination achieves:
+  • Final PSNR: 26.01 dB (VNDHR baseline + 6.22 dB improvement)
+  • Final SSIM: 0.9011 (VNDHR baseline + 0.0541 improvement)
+
+═══════════════════════════════════════════════════════════════════
+Report generated for 999 test images
+VNDHR preprocessing evaluated at 256×256 resolution
+═══════════════════════════════════════════════════════════════════
