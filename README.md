@@ -1,38 +1,96 @@
-# 🌫️ VNDHR + UNet — Nighttime Image Dehazing
+<div align="center">
 
-A **research implementation** of a two-stage nighttime image dehazing pipeline combining classical variational optimization (**VNDHR**) with a deep **U-Net** refinement model. Based on the paper:
+# 🌫️ VNDHR + U-Net — Nighttime Image Dehazing
+
+**Two-stage nighttime dehazing: classical variational optimization + deep learning refinement**
+
+[![Paper](https://img.shields.io/badge/📄_Paper-IEEE_TITS_2025-00629B?style=for-the-badge)](https://ieeexplore.ieee.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Framework-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
+[![License](https://img.shields.io/badge/License-Academic_Research-green?style=for-the-badge)](#-license)
+
+</div>
+
+---
+
+## 📌 Overview
+
+A **research implementation** of a two-stage nighttime image dehazing pipeline based on:
 
 > **"VNDHR: Variational Single Nighttime Image Dehazing for Enhancing Visibility in Intelligent Transportation Systems via Hybrid Regularization"**
 > — *IEEE Transactions on Intelligent Transportation Systems (TITS), 2025*
 
----
+### How it works
 
-## ✨ What This Project Does
-
-Takes a **hazy nighttime image** → outputs a **clear, defogged image** using a two-stage pipeline:
-
-1. **Stage 1 — VNDHR Preprocessing** *(classical variational method)*
-   Decomposes each image into illumination (I) and reflectance (R) components using hybrid regularization (ℓp norm + weighted ℓ2 + ℓ1 TV), solving both sub-problems iteratively via Preconditioned Conjugate Gradient (PCG).
-
-2. **Stage 2 — Deep U-Net Refinement** *(deep learning)*
-   A 5-level U-Net with BatchNorm and skip connections refines the VNDHR output to recover fine details and maximize perceptual quality. Trained with MSE + L1 loss and VGG-based perceptual loss across 3 progressive stages.
+```
+Hazy Nighttime Image
+        │
+        ▼
+┌───────────────────┐
+│  Stage 1 — VNDHR  │  Classical variational method
+│  Hybrid Regulariz.│  Illumination + Reflectance decomposition
+│  PCG Optimization │  via Preconditioned Conjugate Gradient
+└────────┬──────────┘
+         │ VNDHR output
+         ▼
+┌───────────────────┐
+│  Stage 2 — U-Net  │  Deep learning refinement
+│  5-Level Encoder  │  BatchNorm + skip connections
+│  Perceptual Loss  │  MSE + L1 + VGG perceptual
+└────────┬──────────┘
+         │
+         ▼
+  Clear, Defogged Image ✅
+```
 
 ---
 
 ## 📊 Results
 
-| Method | PSNR (dB) | SSIM | Notes |
+| Method | PSNR (dB) | SSIM | Improvement |
 |---|---|---|---|
+| Hazy Input (baseline) | — | — | — |
 | VNDHR only | 19.79 | 0.8470 | Classical baseline |
-| **VNDHR + UNet (ours)** | **26.01** | **0.9011** | **+6.22 dB improvement** |
-| Target | 28.0 | 0.8000 | Paper target |
+| **VNDHR + U-Net (ours)** | **26.01** | **0.9011** | **+6.22 dB / +0.054 SSIM** |
+| Paper target | 28.0 | 0.8000 | ← SSIM exceeded ✅ |
 
 **Key takeaways:**
-- SSIM of **0.9011 exceeds the target by 12.6%** — excellent structural preservation ✅
-- PSNR of 26.01 dB is competitive with state-of-the-art on real-world haze (O-Haze: 23–25 dB, I-Haze: 24–27 dB)
-- The UNet adds **+6.22 dB** PSNR and **+0.054 SSIM** over VNDHR alone, validating the two-stage approach
+- 🏆 **SSIM 0.9011 exceeds the paper target by 12.6%** — excellent structural preservation
+- 📈 **+6.22 dB PSNR** gain over VNDHR-only baseline, validating the two-stage design
+- 🌐 Competitive with state-of-the-art: O-Haze (23–25 dB), I-Haze (24–27 dB)
+- 🧪 Evaluated on **1,000 test images** at 256×256 resolution
 
-Evaluated on **1,000 test images** at 256×256 resolution.
+---
+
+## 🔬 Pipeline Details
+
+### Stage 1 — VNDHR Variational Model
+
+Decomposes a hazy image **S** into **Illumination (I)** and **Reflectance (R)** components using the hybrid energy functional (paper §III-B):
+
+$$\min_{I,R} \|S - I \cdot R\|^2 + \lambda_1\|\nabla I\|_p + \lambda_2 W_r\|\nabla R\|_2^2 + \lambda_3\|\nabla R\|_1$$
+
+| Parameter | Value | Role |
+|---|---|---|
+| λ₁ | 0.002 | ℓp norm weight — illumination smoothness |
+| λ₂ | 0.0001 | Weighted ℓ2 — reflectance regularization |
+| λ₃ | 0.001 | ℓ1 TV norm — noise suppression |
+| p | 0.65 | Fractional-order norm exponent |
+| max_iter | 10 | PCG optimization iterations |
+
+Each sub-problem solved via **Preconditioned Conjugate Gradient (PCG)** on the V-channel of the HSV color space.
+
+---
+
+### Stage 2 — U-Net Refinement (3-Stage Curriculum Training)
+
+**Architecture:** 5-level U-Net · ~18M parameters · BatchNorm · skip connections · AdamW · AMP · 4-way TTA at inference
+
+| Stage | Epochs | Learning Rate | Loss Weights | Augmentation |
+|---|---|---|---|---|
+| 1 — Perceptual intro | 0 – 40 | 3e-5 | MSE + L1 + VGG (gradual ramp) | Light |
+| 2 — Fine-tuning | 41 – 70 | 5e-6 | MSE 60% + L1 40% | Medium |
+| 3 — Aggressive push | 71 – 100 | 5e-5 | MSE 60% + L1 40% | Heavy |
 
 ---
 
@@ -42,32 +100,32 @@ Evaluated on **1,000 test images** at 256×256 resolution.
 digital-image-processing-main/
 │
 ├── codes/
-│   ├── enhanced.ipynb              # Main notebook: VNDHR preprocessing + UNet training + evaluation
-│   ├── research paper code.ipynb   # Experimental / earlier version notebook
-│   └── raw/                        # Draft notebooks (Untitled1, Untitled2)
+│   ├── enhanced.ipynb              # ⭐ Main: VNDHR preprocessing + UNet training + eval
+│   ├── research paper code.ipynb   # Experimental / earlier version
+│   └── raw/                        # Draft notebooks
 │
 ├── dataset/
 │   ├── train/
-│   │   ├── input/                  # Hazy training images (place your data here)
+│   │   ├── input/                  # Hazy training images
 │   │   └── target/                 # Ground-truth clear images
 │   └── test/
 │       ├── input/                  # Hazy test images
 │       └── target/                 # Ground-truth clear images
 │
 ├── outputs/
-│   ├── COMPARISON_4_PANEL/         # Side-by-side comparison images (hazy | VNDHR | UNet | GT)
+│   ├── COMPARISON_4_PANEL/         # Side-by-side: hazy | VNDHR | UNet | GT
 │   ├── enhanced results/
-│   │   ├── comparison_images/      # Enhanced comparison images
-│   │   ├── dehazed_images/         # Final dehazed output images
-│   │   ├── metrics_results.csv     # Per-image PSNR and SSIM scores
+│   │   ├── comparison_images/
+│   │   ├── dehazed_images/         # Final dehazed outputs
+│   │   ├── metrics_results.csv     # Per-image PSNR & SSIM
 │   │   └── summary_report.txt      # Full evaluation summary
 │   ├── VNDHR_METRICS/
-│   │   ├── vndhr_detailed_metrics.csv    # Per-image VNDHR-only metrics
-│   │   └── vndhr_metrics_report.txt      # VNDHR baseline comparison report
+│   │   ├── vndhr_detailed_metrics.csv
+│   │   └── vndhr_metrics_report.txt
 │   └── train_vndhr/                # VNDHR-preprocessed training images
 │
 ├── trained unet model/
-│   └── unet_vndhr_aggressive.pth   # Saved best model checkpoint
+│   └── unet_vndhr_aggressive.pth   # ⭐ Best model checkpoint
 │
 ├── paper/
 │   └── VNDHR_...IEEE_TITS.pdf      # Reference paper (IEEE TITS 2025)
@@ -79,15 +137,17 @@ digital-image-processing-main/
 
 ## ⚙️ Prerequisites
 
-- Python **3.8+**
-- CUDA-compatible GPU (recommended; 6GB+ VRAM)
-- Jupyter Notebook or JupyterLab
+| Requirement | Version |
+|---|---|
+| Python | 3.8+ |
+| CUDA GPU | 6 GB+ VRAM (recommended) |
+| Jupyter | Notebook or JupyterLab |
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Clone this repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/your-username/digital-image-processing.git
@@ -99,34 +159,37 @@ cd digital-image-processing
 ```bash
 python -m venv venv
 
-# On Windows
+# Windows
 venv\Scripts\activate
 
-# On macOS / Linux
+# macOS / Linux
 source venv/bin/activate
 ```
 
 ### 3. Install dependencies
 
+**With CUDA (GPU — recommended):**
 ```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install opencv-python pillow numpy scipy scikit-image tqdm jupyter
 ```
 
-> For CPU-only:
-> ```bash
-> pip install torch torchvision torchaudio
-> pip install opencv-python pillow numpy scipy scikit-image tqdm jupyter
-> ```
-
-### 4. Add your dataset
-
-Place your hazy/clear image pairs into:
+**CPU only:**
+```bash
+pip install torch torchvision torchaudio
+pip install opencv-python pillow numpy scipy scikit-image tqdm jupyter
 ```
-dataset/train/input/    ← hazy training images
-dataset/train/target/   ← corresponding clear images
-dataset/test/input/     ← hazy test images
-dataset/test/target/    ← corresponding clear images
+
+### 4. Organize your dataset
+
+```
+dataset/
+├── train/
+│   ├── input/     ← hazy training images
+│   └── target/    ← clear ground-truth images
+└── test/
+    ├── input/     ← hazy test images
+    └── target/    ← clear ground-truth images
 ```
 
 Then update the paths in `enhanced.ipynb`:
@@ -139,76 +202,70 @@ TEST_VNDHR   = r"path/to/outputs/test_vndhr"
 TRAIN_TARGET = r"path/to/dataset/train/target"
 ```
 
-### 5. Launch the notebook
+### 5. Launch and run
 
 ```bash
 jupyter notebook codes/enhanced.ipynb
 ```
 
-Run the cells in order.
-
----
-
-## 🔬 Pipeline Details
-
-### Stage 1 — VNDHR Variational Model
-
-The VNDHR model decomposes a hazy image **S** into:
-- **I** — Illumination map (V-channel in HSV space)
-- **R** — Reflectance map
-
-Using the hybrid energy functional (paper Section III-B):
-
-```
-min  ||S - I·R||² + λ₁·||∇I||ₚ + λ₂·Wᵣ||∇R||₂² + λ₃·||∇R||₁
- I,R
-```
-
-| Parameter | Value | Role |
-|---|---|---|
-| λ₁ | 0.002 | ℓp norm weight for illumination |
-| λ₂ | 0.0001 | Weighted ℓ2 norm for reflectance |
-| λ₃ | 0.001 | ℓ1 TV norm for noise suppression |
-| p | 0.65 | Fractional-order norm |
-| max_iter | 10 | Optimization iterations |
-
-Each sub-problem is solved via **Preconditioned Conjugate Gradient (PCG)** for efficiency.
-
-### Stage 2 — U-Net Training (3-Stage Curriculum)
-
-| Stage | Epochs | LR | Loss | Augmentation |
-|---|---|---|---|---|
-| 1 — Perceptual intro | 0–40 | 3e-5 | MSE + L1 + VGG (gradually added) | Light |
-| 2 — Fine-tuning | 41–70 | 5e-6 | MSE + L1 (60:40) | Medium |
-| 3 — Aggressive push | 71–100 | 5e-5 | MSE + L1 (60:40) | Heavy |
-
-**Architecture:** 5-level U-Net, ~18M parameters, BatchNorm, skip connections, AdamW optimizer, mixed-precision (AMP), 4-way TTA at test time.
+Run cells **in order** — Stage 1 (VNDHR preprocessing) must complete before Stage 2 (U-Net training).
 
 ---
 
 ## 🛠️ Troubleshooting
 
-| Problem | Fix |
+| Problem | Solution |
 |---|---|
 | `CUDA out of memory` | Reduce `BATCH_SIZE` to 2–4, or set `IMG_SIZE = 128` |
 | `FileNotFoundError` on paths | Update all `r"D:\\..."` paths in the notebook to your local paths |
 | Slow VNDHR preprocessing | Reduce `max_iter` to 5 for faster (slightly lower quality) output |
-| VGG perceptual loss error | Make sure `torchvision` is installed: `pip install torchvision` |
-| Low PSNR during training | Check that input/target pairs are correctly matched by filename |
+| VGG perceptual loss error | Run `pip install torchvision` |
+| Low PSNR during training | Verify input/target filenames are correctly matched |
+
+---
+
+## 👥 Contributors
+
+<div align="center">
+
+| | Name | GitHub | Role |
+|---|---|---|---|
+| <img src="https://avatars.githubusercontent.com/u/70313033?v=4" width="48" style="border-radius:50%"/> | **Tanmayee** | [@Tanmayee1802](https://github.com/Tanmayee1802) | Collaborator |
+| <img src="https://github.com/karthik26-Thalari.png" width="48" style="border-radius:50%"/> | **Karthik** | [@karthik26-Thalari](https://github.com/karthik26-Thalari) | Author |
+
+</div>
 
 ---
 
 ## 📄 License
 
-This project is for academic research purposes. Please cite the original paper if you use this work:
+This project is for **academic research purposes only**. If you use this work, please cite the original paper:
 
-> *VNDHR: Variational Single Nighttime Image Dehazing for Enhancing Visibility in Intelligent Transportation Systems via Hybrid Regularization* — IEEE TITS 2025
+```bibtex
+@article{vndhr2025,
+  title={VNDHR: Variational Single Nighttime Image Dehazing for Enhancing
+         Visibility in Intelligent Transportation Systems via Hybrid Regularization},
+  journal={IEEE Transactions on Intelligent Transportation Systems},
+  year={2025}
+}
+```
 
 ---
 
 ## 🙌 Acknowledgements
 
-- **IEEE TITS 2025** — Original VNDHR paper authors
-- [PyTorch](https://pytorch.org/) — Deep learning framework
-- [scikit-image](https://scikit-image.org/) — PSNR / SSIM evaluation metrics
-- [SciPy](https://scipy.org/) — Sparse matrix PCG solver
+| Resource | Role |
+|---|---|
+| [IEEE TITS 2025](https://ieeexplore.ieee.org/) | Original VNDHR paper & methodology |
+| [PyTorch](https://pytorch.org/) | Deep learning framework |
+| [scikit-image](https://scikit-image.org/) | PSNR / SSIM evaluation metrics |
+| [SciPy](https://scipy.org/) | Sparse matrix PCG solver |
+| [Kaggle](https://www.kaggle.com/) | GPU compute for training |
+
+---
+
+<div align="center">
+
+Made with ❤️ by [karthik26-Thalari](https://github.com/karthik26-Thalari) & [Tanmayee1802](https://github.com/Tanmayee1802)
+
+</div>
