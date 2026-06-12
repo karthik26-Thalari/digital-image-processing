@@ -1,9 +1,10 @@
 <div align="center">
 
-# 🌫️ VNDHR + U-Net — Nighttime Image Dehazing
+# 🌫️ VNDHR + U-Net — Image Dehazing (Day & Night)
 
-**Two-stage nighttime dehazing: classical variational optimization + deep learning refinement**
+**Two-stage dehazing: classical variational optimization + deep learning refinement**
 
+[![Demo](https://img.shields.io/badge/🤗_Live_Demo-HuggingFace-FFD21E?style=for-the-badge)](https://huggingface.co/spaces/mayee1802/Image-Dehazing)
 [![Paper](https://img.shields.io/badge/📄_Paper-IEEE_TITS_2025-00629B?style=for-the-badge)](https://ieeexplore.ieee.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-Framework-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
@@ -15,32 +16,42 @@
 
 ## 📌 Overview
 
-A **research implementation** of a two-stage nighttime image dehazing pipeline based on:
+A **research implementation** of a two-stage image dehazing pipeline supporting both **nighttime** and **daytime/morning** haze, based on:
 
 > **"VNDHR: Variational Single Nighttime Image Dehazing for Enhancing Visibility in Intelligent Transportation Systems via Hybrid Regularization"**
 > — *IEEE Transactions on Intelligent Transportation Systems (TITS), 2025*
 
+🤗 **Try it live:** [huggingface.co/spaces/mayee1802/Image-Dehazing](https://huggingface.co/spaces/mayee1802/Image-Dehazing)
+
 ### How it works
 
 ```
-Hazy Nighttime Image
+Upload Any Hazy Image
         │
         ▼
-┌───────────────────┐
-│  Stage 1 — VNDHR  │  Classical variational method
-│  Hybrid Regulariz.│  Illumination + Reflectance decomposition
-│  PCG Optimization │  via Preconditioned Conjugate Gradient
-└────────┬──────────┘
-         │ VNDHR output
-         ▼
-┌───────────────────┐
-│  Stage 2 — U-Net  │  Deep learning refinement
-│  5-Level Encoder  │  BatchNorm + skip connections
-│  Perceptual Loss  │  MSE + L1 + VGG perceptual
-└────────┬──────────┘
+┌───────────────────────┐
+│  Auto Scene Detection  │  Brightness analysis (HSV V-channel)
+└────────┬──────────────┘
          │
-         ▼
-  Clear, Defogged Image ✅
+    ┌────┴────┐
+    ▼         ▼
+🌙 Night    ☀️ Day/Morning
+    │              │
+    ▼              ▼
+┌────────┐   ┌──────────┐
+│ VNDHR  │   │   DCP    │  Dark Channel Prior
+│Variati.│   │Classical │  Atmospheric light
+│  PCG   │   │Dehazing  │  Transmission map
+└───┬────┘   └────┬─────┘
+    └──────┬───────┘
+           ▼
+  ┌─────────────────┐
+  │  Stage 2 — UNet │  Deep learning refinement
+  │  5-Level Encoder│  BatchNorm + skip connections
+  │  Perceptual Loss│  MSE + L1 + VGG perceptual
+  └────────┬────────┘
+           ▼
+   Clear, Defogged Image ✅
 ```
 
 ---
@@ -64,7 +75,7 @@ Hazy Nighttime Image
 
 ## 🔬 Pipeline Details
 
-### Stage 1 — VNDHR Variational Model
+### Stage 1A — VNDHR Variational Model (Nighttime)
 
 Decomposes a hazy image **S** into **Illumination (I)** and **Reflectance (R)** components using the hybrid energy functional (paper §III-B):
 
@@ -79,6 +90,19 @@ $$\min_{I,R} \|S - I \cdot R\|^2 + \lambda_1\|\nabla I\|_p + \lambda_2 W_r\|\nab
 | max_iter | 10 | PCG optimization iterations |
 
 Each sub-problem solved via **Preconditioned Conjugate Gradient (PCG)** on the V-channel of the HSV color space.
+
+---
+
+### Stage 1B — Dark Channel Prior (Daytime / Morning)
+
+For daytime haze, the **Dark Channel Prior (DCP)** is applied:
+
+1. Compute the **dark channel** — minimum intensity across color channels in a local patch
+2. Estimate **atmospheric light** from the top 0.1% brightest pixels in the dark channel
+3. Compute **transmission map** and smooth with Gaussian filter
+4. Recover the **scene radiance** via the haze imaging model: `J = (I - A) / t + A`
+
+This handles fog, smog, and morning haze conditions where VNDHR is not optimized.
 
 ---
 
@@ -150,7 +174,7 @@ digital-image-processing-main/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/digital-image-processing.git
+git clone https://github.com/karthik26-Thalari/digital-image-processing.git
 cd digital-image-processing
 ```
 
